@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.16.2/xlsx.full.min.js"></script>
+
+
+
+</head>
+
+<script type="text/javascript">
+
+var credits = {};
+
+</script>
+
+
+<style >
+  .upcenter {
+  margin: 0;
+  position: absolute;
+  top: 15%;
+  left: 50%;
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+
+
+</style>
+
+
+<body>
+  <nav class="navbar navbar-inverse">
+    <div class="container-fluid">
+      <div class="navbar-header pull-right">
+        <a style="font-size:12px" class="navbar-brand" href="#">Made by Pavan BTD</a>
+      </div>
+    </div>
+  </nav>
+
+    <div class=" upcenter">
+      <h4> <strong> Upload your EXCEL here..</strong></h4>
+          <input type="file" id="input" accept=".xls,.xlsx"  >
+    </div>
+<br><br><br><br><br>
+    <div class="container text-center" >
+      <br><button  type="button" class="btn btn-primary" id="button" >Upload</button>
+    </div>
+    <br>
+    <div id="credits" class="container">
+    </div>
+
+</body>
+<script>
+
+var credits = {};
+
+
+  let selectedFile;
+  console.log(window.XLSX);
+  document.getElementById('input').addEventListener("change", (event) => {
+      selectedFile = event.target.files[0];
+  })
+
+  let data=[];
+
+  let xcelJsonObject = [];
+
+  var subjectNames = [];
+
+  document.getElementById('button').addEventListener("click", () => {
+      XLSX.utils.json_to_sheet(data, 'out.xlsx');
+      if(selectedFile){
+          let fileReader = new FileReader();
+          fileReader.readAsBinaryString(selectedFile);
+          fileReader.onload = (event)=>{
+           let data = event.target.result;
+           let workbook = XLSX.read(data,{type:"binary"});
+           console.log(workbook);
+           let rowObject = XLSX.utils.sheet_to_row_object_array(workbook.Sheets[workbook.SheetNames[0]]);
+
+           //rowObject is an array of js objects
+           rowObject.forEach( r => {
+             delete r.Timestamp;
+           });
+
+           subjectNames = Object.keys(rowObject[0]);
+           console.log(subjectNames);
+
+           xcelJsonObject = rowObject;
+           //document.getElementById("jsondata").innerHTML = JSON.stringify(rowObject,undefined,4);
+
+
+           // show form to get credits for each subject
+
+           var creditsForm = "<h4>Please enter credits for each subject : </h4> <form>";
+           for(var i=2; i<subjectNames.length; i++){
+              var str = subjectNames[i] + ": <input class='form-control' type='number' name='"+  subjectNames[i]  +"' value='' oninput='credits."+ subjectNames[i] +"=this.value'>";
+              creditsForm = creditsForm + str;
+           }
+              creditsForm = creditsForm  + "</form><br><button type='button' class='btn btn-success' name='Submit' onclick='console.log(credits);calculateResults();'>Submit</button>";
+              document.getElementById("credits").innerHTML = creditsForm;
+          }
+      }
+  });
+
+
+
+  function calculateResults(){
+
+
+      var totalCredits = 0;
+      for(var i=2; i<subjectNames.length; i++){
+        var next = parseInt(credits[subjectNames[i]]);    // use credits[subjectNames[i]] instead of credits.subjectNames[i] bcoz its okay for while creating a new propbut not while getting value from it.
+        totalCredits = totalCredits + next;;
+      }
+
+
+
+
+      xcelJsonObject.forEach(row =>{
+
+
+        var sgpa= 0.0;
+        var result = "P";
+        for(var i=2; i<subjectNames.length; i++){
+          var grade = 0;
+          if(row[subjectNames[i]] < 40){
+            grade = 0;
+          }else if(row[subjectNames[i]] < 45){
+            grade = 4;
+          }else if(row[subjectNames[i]] < 50){
+            grade = 5;
+          }else if(row[subjectNames[i]] < 60){
+            grade = 6;
+          }else if(row[subjectNames[i]] < 70){
+            grade = 7;
+          }else if(row[subjectNames[i]] < 80){
+            grade = 8;
+          }else if(row[subjectNames[i]] < 90){
+            grade = 9;
+          }else if(row[subjectNames[i]] < 100){
+            grade = 10;
+          }
+          sgpa = sgpa + grade*credits[subjectNames[i]];
+            if(result == "P" && row[subjectNames[i]] >40){
+              result = "P";
+            }else{
+              result="F"
+            }
+        }
+
+
+        sgpa = sgpa/totalCredits;
+        row.sgpa = sgpa.toFixed(2);;
+        row.percentage = ((sgpa-0.75)*10).toFixed(2);;
+        if(row.percentage < 60){
+          row.class = "SC"
+        }else if(row.percentage < 70){
+          row.class = "FC"
+        }else if(row.percentage < 100){
+          row.class = "FCD"
+        }
+        row.result = result;
+
+
+
+      });
+
+
+
+
+
+
+
+      subjectNames = Object.keys(xcelJsonObject[0]);
+
+      console.log(xcelJsonObject);
+
+      var table = "<div class='container text-center' ><button type='button' class='btn btn-primary btn-lg' onclick='download()' >Download Results in EXCEL </button></div> <br><table class='table table-hover table-bordered table-striped'><tr>";
+
+      subjectNames.forEach(sub =>{
+        table = table + "<th>"+ sub.toUpperCase() +"</th>";
+      });
+      table = table + "</tr>";
+
+      xcelJsonObject.forEach(row =>{
+      table = table + "<tr>";
+
+      subjectNames.forEach(sub =>{
+        table = table + "<td>"+ row[sub] +"</td>";
+      });
+
+      table = table + "</tr>";
+      });
+
+      table = table + "</table>";
+      document.getElementById("credits").innerHTML = table;
+
+
+
+
+
+  }
+
+
+    function download(){
+
+
+        var createXLSLFormatObj = [];
+
+        /* XLS Head Columns */
+        var xlsHeader = subjectNames;
+
+        /* XLS Rows Data */
+        var xlsRows = xcelJsonObject;
+
+
+        createXLSLFormatObj.push(xlsHeader);
+        $.each(xlsRows, function(index, value) {
+            var innerRowData = [];
+            $.each(value, function(ind, val) {
+
+                innerRowData.push(val);
+            });
+            createXLSLFormatObj.push(innerRowData);
+        });
+
+
+        /* File Name */
+        var filename = "results.xlsx";
+
+        /* Sheet Name */
+        var ws_name = "results";
+
+        if (typeof console !== 'undefined') console.log(new Date());
+        var wb = XLSX.utils.book_new(),
+            ws = XLSX.utils.aoa_to_sheet(createXLSLFormatObj);
+
+        /* Add worksheet to workbook */
+        XLSX.utils.book_append_sheet(wb, ws, ws_name);
+
+        /* Write workbook and Download */
+        if (typeof console !== 'undefined') console.log(new Date());
+        XLSX.writeFile(wb, filename);
+        if (typeof console !== 'undefined') console.log(new Date());
+
+    }
+
+
+    </script>
+
+
+
+
+
+
+
+
+</html>
